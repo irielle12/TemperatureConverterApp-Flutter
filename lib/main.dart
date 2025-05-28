@@ -1,122 +1,295 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Required for SystemChrome
 
 void main() {
-  runApp(const MyApp());
+  // Ensure that Flutter widgets are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  // Set preferred orientations (optional, but good for consistent behavior)
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]).then((_) {
+    runApp(const MyApp());
+  });
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Temperature Converter',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const TemperatureConverterScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class TemperatureConverterScreen extends StatefulWidget {
+  const TemperatureConverterScreen({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<TemperatureConverterScreen> createState() => _TemperatureConverterScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+enum ConversionType { fahrenheitToCelsius, celsiusToFahrenheit }
 
-  void _incrementCounter() {
+class _TemperatureConverterScreenState extends State<TemperatureConverterScreen> {
+  ConversionType _selectedConversion = ConversionType.fahrenheitToCelsius;
+  final TextEditingController _temperatureController = TextEditingController();
+  String _convertedTemperature = '';
+  final List<String> _history = [];
+
+  @override
+  void dispose() {
+    _temperatureController.dispose();
+    super.dispose();
+  }
+
+  void _convertTemperature() {
+    double? inputValue = double.tryParse(_temperatureController.text);
+    if (inputValue == null) {
+      setState(() {
+        _convertedTemperature = 'Invalid input';
+      });
+      return;
+    }
+
+    double result;
+    String historyEntry;
+
+    if (_selectedConversion == ConversionType.fahrenheitToCelsius) {
+      result = (inputValue - 32) * 5 / 9;
+      historyEntry = 'F to C: ${inputValue.toStringAsFixed(1)} => ${result.toStringAsFixed(2)}';
+    } else {
+      result = inputValue * 9 / 5 + 32;
+      historyEntry = 'C to F: ${inputValue.toStringAsFixed(1)} => ${result.toStringAsFixed(2)}';
+    }
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _convertedTemperature = result.toStringAsFixed(2);
+      // Add to the beginning of the list, so most recent is at the top
+      _history.insert(0, historyEntry); 
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final orientation = MediaQuery.of(context).orientation;
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Temperature Converter'),
+        elevation: 4, // Adds a subtle shadow
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: orientation == Orientation.portrait
+          ? _buildPortraitLayout()
+          : _buildLandscapeLayout(),
+    );
+  }
+
+  // --- Widget Building Methods ---
+
+  Widget _buildConversionSelection() {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Conversion Type:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            RadioListTile<ConversionType>(
+              title: const Text('Fahrenheit to Celsius'),
+              value: ConversionType.fahrenheitToCelsius,
+              groupValue: _selectedConversion,
+              onChanged: (ConversionType? value) {
+                setState(() {
+                  _selectedConversion = value!;
+                });
+              },
+            ),
+            RadioListTile<ConversionType>(
+              title: const Text('Celsius to Fahrenheit'),
+              value: ConversionType.celsiusToFahrenheit,
+              groupValue: _selectedConversion,
+              onChanged: (ConversionType? value) {
+                setState(() {
+                  _selectedConversion = value!;
+                });
+              },
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+
+  Widget _buildTemperatureInput() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: TextField(
+        controller: _temperatureController,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: 'Enter Temperature Value',
+          hintText: 'e.g., 68.0',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.thermostat_outlined),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConvertButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: SizedBox( // Use SizedBox to give the button a fixed width
+        width: double.infinity, // Make button fill available width
+        child: ElevatedButton.icon(
+          onPressed: _convertTemperature,
+          icon: const Icon(Icons.autorenew),
+          label: const Text(
+            'Convert',
+            style: TextStyle(fontSize: 18),
+          ),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConvertedResult() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Card(
+        elevation: 2,
+        color: Colors.blue.shade50, // A light blue background
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Converted: ',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.normal),
+              ),
+              Text(
+                _convertedTemperature,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    if (_history.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'No conversions yet. History will appear here.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      itemCount: _history.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Text(
+              _history[index],
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPortraitLayout() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          _buildConversionSelection(),
+          _buildTemperatureInput(),
+          _buildConvertButton(),
+          _buildConvertedResult(),
+          const SizedBox(height: 20),
+          // History takes up remaining space, but in a ScrollView, needs a fixed height
+          SizedBox(
+            height: 250, // You can adjust this height as needed
+            child: _buildHistoryList(),
+          ),
+          const SizedBox(height: 10), // Padding at the bottom
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 1, // Left side for input and controls
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                _buildConversionSelection(),
+                _buildTemperatureInput(),
+                _buildConvertButton(),
+                _buildConvertedResult(),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        ),
+        const VerticalDivider(width: 1, thickness: 1), // Visual separation
+        Expanded(
+          flex: 1, // Right side for history
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Conversion History:',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: _buildHistoryList(),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
